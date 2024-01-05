@@ -35,6 +35,7 @@ spec:
               -deststoretype pkcs12 \
               -noprompt
           done
+          cp /mnt/secrets-store/jksPassword.txt /mnt/secrets-tls/jksPassword.txt
         env:
         volumeMounts:
         - mountPath: /mnt/secrets-store/
