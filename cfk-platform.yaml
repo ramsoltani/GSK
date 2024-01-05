@@ -1,0 +1,147 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: Zookeeper
+metadata:
+  name: zookeeper
+  namespace: confluent
+  annotations:
+    platform.confluent.io/pod-overlay-configmap-name: convert-configmap
+spec:
+  replicas: 3
+  image:
+    application: confluentinc/cp-zookeeper:7.5.0
+    init: confluentinc/confluent-init-container:2.7.0
+  dataVolumeCapacity: 10Gi
+  logVolumeCapacity: 10Gi
+  authentication:
+    type: mtls
+  tls:
+    directoryPathInContainer: /mnt/secrets-tls
+  mountedVolumes:
+    volumes:
+    - name: secrets-store01-inline
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "azure-kvname-gsk"
+    - name: secrets-tls
+    - name: script-tmp
+
+    volumeMounts:
+    - name: secrets-store01-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+    - name: secrets-tls
+      mountPath: "/mnt/secrets-tls"
+    - name: script-tmp
+      mountPath: "/tmp"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: Kafka
+metadata:
+  name: kafka
+  namespace: confluent
+  annotations:
+    platform.confluent.io/pod-overlay-configmap-name: convert-kafka-configmap
+spec:
+  replicas: 3
+  image:
+    application: confluentinc/cp-server:7.5.0
+    init: confluentinc/confluent-init-container:2.7.0
+  dataVolumeCapacity: 10Gi
+  tls:
+    directoryPathInContainer: /mnt/secrets-tls
+  mountedVolumes:
+    volumes:
+    - name: secrets-store01-inline
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "azure-kvname-gsk"
+    - name: secrets-tls
+
+    volumeMounts:
+    - name: secrets-store01-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+    - name: secrets-tls
+      mountPath: "/mnt/secrets-tls"
+  listeners:
+    internal:
+      authentication:
+        type: mtls
+        principalMappingRules:
+          - RULE:.*CN[\\s]?=[\\s]?([a-zA-Z0-9.]*)?.*/$1/
+      tls:
+        enabled: true
+    external:
+      authentication:
+        type: mtls
+        principalMappingRules:
+          - RULE:.*CN[\\s]?=[\\s]?([a-zA-Z0-9.]*)?.*/$1/
+      tls:
+        enabled: true
+      externalAccess:
+        type: loadBalancer
+        loadBalancer:
+          domain: eks.ramzi.ps.confluent.io
+          brokerPrefix: b
+          bootstrapPrefix: kafka
+  metricReporter:
+    enabled: true
+    authentication:
+      type: mtls
+    tls:
+      enabled: true
+  dependencies:
+    zookeeper:
+      endpoint: zookeeper.confluent.svc.cluster.local:2182
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ControlCenter
+metadata:
+  name: controlcenter
+  namespace: confluent
+spec:
+  replicas: 1
+  podTemplate:
+    probe:
+      liveness:
+        periodSeconds: 10
+        failureThreshold: 5
+        timeoutSeconds: 500
+  image:
+    application: confluentinc/cp-enterprise-control-center:7.5.0
+    init: confluentinc/confluent-init-container:2.7.0
+  dataVolumeCapacity: 10Gi
+  externalAccess:
+    type: loadBalancer
+    loadBalancer:
+      domain: eks.ramzi.ps.confluent.io
+      prefix: controlcenter
+  tls:
+    directoryPathInContainer: /mnt/secrets-store
+  mountedVolumes:
+    volumes:
+    - name: secrets-store01-inline
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "azure-kvname-gsk"
+    volumeMounts:
+    - name: secrets-store01-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+  dependencies:
+    kafka:
+      bootstrapEndpoint: kafka.confluent.svc.cluster.local:9071
+      authentication:
+        type: mtls
+      tls:
+        enabled: true

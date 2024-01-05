@@ -1,0 +1,46 @@
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: busybox-to-convert
+        image: fredrikhgrelland/alpine-jdk11-openssl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          openssl x509 -in /mnt/secrets-store/zk-public-cert.pem -text -noout
+          openssl pkcs12 -export \
+              -in /mnt/secrets-store/zk-public-cert.pem \
+              -inkey /mnt/secrets-store/zk-private-cert.pem \
+              -out /mnt/secrets-tls/pkcs.p12 \
+              -name testService \
+              -passout pass:mystorepassword
+          keytool -importkeystore \
+              -deststorepass mystorepassword \
+              -destkeypass mystorepassword \
+              -destkeystore /mnt/secrets-tls/keystore.jks \
+              -deststoretype pkcs12 \
+              -srckeystore /mnt/secrets-tls/pkcs.p12 \
+              -srcstoretype PKCS12 \
+              -srcstorepass mystorepassword
+          cat /mnt/secrets-store/ca-server-cert.pem | awk 'split_after==1{n++;split_after=0} /-----END CERTIFICATE-----/ {split_after=1} {print > ("/tmp/ca" n ".pem")}'
+          for file in /tmp/*; do
+            fileName="${file##*/}"
+            keytool -import \
+              -trustcacerts \
+              -alias "${fileName}" \
+              -file "${file}" \
+              -keystore /mnt/secrets-tls/truststore.jks \
+              -deststorepass mystorepassword \
+              -deststoretype pkcs12 \
+              -noprompt
+          done
+        env:
+        volumeMounts:
+        - mountPath: /mnt/secrets-store/
+          name: secrets-store01-inline
+        - mountPath: /mnt/secrets-tls/
+          name: secrets-tls
+        - mountPath: /tmp/
+          name: script-tmp
+        imagePullPolicy: IfNotPresent
