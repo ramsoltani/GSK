@@ -1,0 +1,22 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: SchemaExporter
+metadata:
+  name: schemaExporter
+  namespace: [Namespace the Schema Link will run within]
+spec:
+  sourceCluster:
+    schemaRegistryClusterRef:
+      name: [The name of the schema registry cluster of the source]
+      namespace: [Optional, the namespafce of the schema registry cluster]
+  destinationCluster:
+    schemaRegistryRest:
+      endpoint: [Endpoint for the destination Schema Registry]
+      authentication:
+        type: [Authentication Method you plan to use. Should be basic, mtls, or bearer]
+        secretRef: [The secrets ref you plan to use for the credentials]
+  subjects:
+  - [Subject 1 you wish to export]
+  - [Subject 2 you wish to export]
+  - [* for all, which is the default]
+  contextType: [The Context type you want to use on the Schema Link. Can be AUTO, CUSTOM, NONE, or DEFAULT. Docs on https://docs.confluent.io/platform/current/schema-registry/schema-linking-cp.html#schema-linking-cp-overview ]
+  contextName: [IF custom type then the namespace you want the schemas to be in on the destination]
