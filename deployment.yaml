@@ -59,7 +59,7 @@ spec:
         command:
         - /bin/sh
         - -c
-        - awk 'FNR==1{print ""}1' /mnt/secrets-cl/ca1.pem /mnt/secrets-cl/ca2.pem /mnt/secrets-cl/ca3.pem > /mnt/concat-pem/cacerts.pem
+        - awk 'FNR==1{print ""}1' /mnt/secrets-cl/ca1.pem /mnt/secrets-cl/ca2.pem /mnt/secrets-cl/ca3.pem > /mnt/concat-pem/cacerts.pem ; cp /mnt/secrets-cl/fullchain.pem /mnt/concat-pem/fullchain.pem ; /mnt/secrets-cl/privkey.pem /mnt/concat-pem/privkey.pem
         volumeMounts:
         - mountPath: /mnt/concat-pem
           name: concat-pem
